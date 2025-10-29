@@ -1,71 +1,145 @@
 import { useEffect, useState } from 'react';
+import { Table, Button, Space, Popconfirm, message } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 import { useLoftStore } from '../stores/loftStore';
+import { LoftForm } from './LoftForm';
+import { Loft } from '../types';
 
 interface LoftListProps {
   onSelectLoft?: (loftId: string) => void;
   onCreateLoft?: () => void;
 }
 
-export function LoftList({ onSelectLoft, onCreateLoft }: LoftListProps) {
+export function LoftList({ onSelectLoft }: LoftListProps) {
   const { lofts, fetchLofts, deleteLoft, isLoading, error } = useLoftStore();
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingLoft, setEditingLoft] = useState<Loft | undefined>(undefined);
 
   useEffect(() => {
     fetchLofts();
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este palomar?')) {
-      try {
-        await deleteLoft(id);
-      } catch (error) {
-        // Error manejado en el store
-      }
+    try {
+      await deleteLoft(id);
+      message.success('Palomar eliminado correctamente');
+    } catch (error) {
+      message.error('Error al eliminar el palomar');
     }
   };
 
-  if (isLoading) {
-    return <div>Cargando palomares...</div>;
-  }
+  const handleEdit = (loft: Loft) => {
+    setEditingLoft(loft);
+    setShowModal(true);
+  };
 
-  if (error) {
-    return <div style={{ color: 'red' }}>Error: {error}</div>;
-  }
+  const handleCreate = () => {
+    setEditingLoft(undefined);
+    setShowModal(true);
+  };
+
+  const handleModalSuccess = () => {
+    setShowModal(false);
+    setEditingLoft(undefined);
+    fetchLofts();
+  };
+
+  const handleModalCancel = () => {
+    setShowModal(false);
+    setEditingLoft(undefined);
+  };
+
+  const columns: ColumnsType<Loft> = [
+    {
+      title: 'Nombre',
+      dataIndex: 'name',
+      key: 'name',
+      sorter: (a, b) => a.name.localeCompare(b.name),
+    },
+    {
+      title: 'Ubicación',
+      dataIndex: 'location',
+      key: 'location',
+      render: (text) => text || '-',
+    },
+    {
+      title: 'Descripción',
+      dataIndex: 'description',
+      key: 'description',
+      render: (text) => text || '-',
+      ellipsis: true,
+    },
+    {
+      title: 'Acciones',
+      key: 'actions',
+      width: 200,
+      render: (_, record) => (
+        <Space size="small">
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => onSelectLoft?.(record._id)}
+          >
+            Ver Palomas
+          </Button>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
+          <Popconfirm
+            title="Eliminar palomar"
+            description="¿Estás seguro de eliminar este palomar?"
+            onConfirm={() => handleDelete(record._id)}
+            okText="Sí"
+            cancelText="No"
+          >
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+            />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <div>
-      <h2>Mis Palomares</h2>
-      
-      <button onClick={onCreateLoft}>Crear Nuevo Palomar</button>
-      
-      {lofts.length === 0 ? (
-        <p>No tienes palomares registrados.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Ubicación</th>
-              <th>Descripción</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lofts.map(loft => (
-              <tr key={loft._id}>
-                <td>{loft.name}</td>
-                <td>{loft.location || '-'}</td>
-                <td>{loft.description || '-'}</td>
-                <td>
-                  <button onClick={() => onSelectLoft?.(loft._id)}>Ver Palomas</button>
-                  <button onClick={() => setEditingId(loft._id)}>Editar</button>
-                  <button onClick={() => handleDelete(loft._id)}>Eliminar</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0 }}>Mis Palomares</h2>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={handleCreate}
+        >
+          Crear Nuevo Palomar
+        </Button>
+      </div>
+
+      <Table
+        columns={columns}
+        dataSource={lofts}
+        rowKey="_id"
+        loading={isLoading}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showTotal: (total) => `Total: ${total} palomares`,
+        }}
+        locale={{
+          emptyText: 'No tienes palomares registrados',
+        }}
+      />
+
+      <LoftForm
+        open={showModal}
+        loft={editingLoft}
+        onSuccess={handleModalSuccess}
+        onCancel={handleModalCancel}
+      />
     </div>
   );
 }

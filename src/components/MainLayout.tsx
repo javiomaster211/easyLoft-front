@@ -91,7 +91,6 @@ export function MainLayout() {
         return (
           <LoftList
             onSelectLoft={handleSelectLoft}
-            onCreateLoft={() => setShowLoftForm(true)}
           />
         );
       
